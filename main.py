@@ -56,27 +56,16 @@ usage_status = "Ok"
 @app.route('/')
 def home():
     global system_status
-    if system_status == 1:
-        system_status_str ="on"
-    else:
-        system_status_str="off"
-
-    if system_status == "on":
-        url = "/system_off"
-    else:
-        url = "/system_on"
-
-    # Code for testing
-    url="/system_on"
-    system_status_str="on"
-
-    return render_template('index.html', system_status=system_status_str,url=url)
+    system_status_str = "on" if system_status == 1 else "off"
+    url = "/system_off" if system_status == 1 else "/system_on"
+    return render_template('index.html', system_status=system_status_str, url=url)
 
 @app.route('/system_off')
 def system_off():
     global system_status 
     system_status = 0
-    message = "Airconditioner Switched On"
+    OnOff_Loop()  # Call the loop function to manage the toggle
+    message = "Airconditioner Switched Off"
     telegram_bot(message)
     return render_template("system_off.html",elapsed_time=elapsed_time)
 
@@ -86,7 +75,6 @@ def system_on():
     system_status = 1
     message = "Airconditioner Switched Off"
     telegram_bot(message)
-    return render_template("system_on.html",elapsed_time=elapsed_time)
 
 ###########################################################################################################
 # Functions
@@ -99,7 +87,7 @@ def is_air_conditioner_on(humidity, temperature):
 def exceeded_useage():
     global usage_status
     usage_status = "Exceeded"
-    message = "Airconditioner Usage Exceeded! Please turn off airconditioner as soon as possible. Turn off airconditioner via this link: 127.0.0.1:5500 "
+    message = "Airconditioner Usage Exceeded! Please turn off airconditioner as soon as possible. Turn off airconditioner via this link: 127.0.0.1:5000 "
     telegram_bot(message)
     
     GPIO.output(LED_PIN,GPIO.HIGH)
@@ -155,13 +143,14 @@ def keypad_interupt():
     sleep(2)
     LCD.lcd_clear()
     LCD.lcd_display_string("3.ON/OFF", 1)
-    """
+    
     key = None
     while key not in [1, 2, 3]:
-        key = keypad_queue.get()"""
-    key = get_key()
+        key = keypad_queue.get()
+
+    """key = get_key()
     print("value of the key is:")
-    print(str(key))
+    print(str(key))"""
 
     if key == 1:
         LCD.lcd_display_string(str(elapsed_time),1)
@@ -188,19 +177,11 @@ def keypad_interupt():
             time.sleep(2)
             LCD.lcd_clear()
 
-    elif key == 3:                       # On / Off toggle button
+    elif key == 3:  # Toggle On/Off
         global system_status
-        if system_status == 1:
-            system_status = 0
-            LCD.lcd_clear()
-            LCD.lcd_display_string("System OFF",1)
-            print("Turn the whole system off")
-        elif system_status == 0:
-            system_status = 1
-            LCD.lcd_clear()
-            LCD.lcd_display_string("System ON",1)
-            print("Turn the whole system on")
-
+        system_status = 1 - system_status  # Toggle between 0 and 1
+        OnOff_Loop()  # Call the loop function to manage the toggle
+       
 
 ##########################################################################################################
 # Threads
@@ -265,7 +246,29 @@ def upload_data():
     resp = requests.get("https://api.thingspeak.com/update?api_key=Q5WYV1VLWZQGPWBR&field1=%s&field2=%s"%(temperature,humidity))
     # time.sleep(20) # Need to sleep for at least 20
 
+def OnOff_Loop():
+    global system_status
+    if system_status == 0:
+        # System is off
+        LCD.lcd_clear()
+        GPIO.output(BUZZER_PIN, GPIO.LOW)
+        GPIO.output(LED_PIN, GPIO.LOW)
+        LCD.lcd_display_string("System OFF", 1)
+        print("System is turned OFF")
+        LCD.lcd_display_string("1.On",2)
 
+        key = None
+        while key not in [1]:
+            key = keypad_queue.get()
+        if key == 1:
+            system_status = 1
+
+    if system_status == 1:
+        # System is on
+        airconditioner_timer_thread = threading.Thread(target=airconditioner_timer)
+        airconditioner_timer_thread.start()
+        print("System is turned ON")
+        
                 
 ##########################################################################################################
 # Telegram Bot
@@ -274,15 +277,14 @@ def upload_data():
 ##########################################################################################################
 # Main function that holds essentially all the code
 def main():
+    global system_status
+    OnOff_Loop()
     # if system_status == 1:
-        # Declaring the Threads
-        ac_timer_thread = threading.Thread(target=airconditioner_timer)  # Thread for the airconditioner_timer function
-        # keypad_interrupt_thread = threading.Thread(target=keypad_interupt)  # Thread for the keypad_interrupt function
-        keypad_thread = threading.Thread(target=get_key)
-        
-        ac_timer_thread.start()
-        # keypad_interrupt_thread.start()
-        keypad_thread.start()
+        # ac_timer_thread = threading.Thread(target=airconditioner_timer)  # Thread for the airconditioner_timer function
+        # ac_timer_thread.start()
+
+    keypad_thread = threading.Thread(target=get_key)
+    keypad_thread.start()
 ##########################################################################################################
 
 # def start_flask_app():
