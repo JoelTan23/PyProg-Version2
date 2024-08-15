@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Airconditioner Tracker</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .panel {
+            background-color: #2d3c7a;
+            color: white;
+            border: 2px solid black;
+            margin: 20px;
+            padding: 40px;
+            text-align: center;
+        }
+        .button {
+            display: inline-block;
+            padding: 10px 20px;
+            font-size: 16px;
+            color: white;
+            background-color: #333;
+            border: none;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+            margin-top: 10px;
+        }
+        .button:hover {
+            background-color: #555;
+        }
+    </style>
+</head> 
+
+<body>
+    <div class="panel">
+        <h2>Airconditioner Status</h2>
+        <p>{{ system_status }}</p>
+        <form action="{{ url }}" method="get">
+            <button type="submit" class="button">Aircondition is {{ system_status }}</button>
+        </form>
+    </div>
+    <div class="panel">
+        <h2>Tracking Data</h2>
+        <h4><em>via Thingspeak.com</em></h4>
+        <form action="https://thingspeak.com/channels/2591947/private_show" method="get">
+            <button type="submit" class="button">View Data Graphs</button>
+        </form>
+    </div>
+</body>
+</html>
