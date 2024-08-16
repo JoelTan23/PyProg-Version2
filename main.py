@@ -62,19 +62,22 @@ def home():
 
 @app.route('/system_off')
 def system_off():
-    global system_status 
+    global system_status
+    global elapsed_time
     system_status = 0
-    OnOff_Loop()  # Call the loop function to manage the toggle
+    
     message = "Airconditioner Switched Off"
     telegram_bot(message)
+    
     return render_template("system_off.html",elapsed_time=elapsed_time)
 
 @app.route('/system_on')
 def system_on():
     global system_status
     system_status = 1
-    message = "Airconditioner Switched Off"
+    message = "Airconditioner Switched On"
     telegram_bot(message)
+    return render_template("system_on.html", elapsed_time=elapsed_time)
 
 ###########################################################################################################
 # Functions
@@ -144,13 +147,13 @@ def keypad_interupt():
     LCD.lcd_clear()
     LCD.lcd_display_string("3.ON/OFF", 1)
     
-    key = None
+    """key = None
     while key not in [1, 2, 3]:
-        key = keypad_queue.get()
+        key = keypad_queue.get()"""
 
-    """key = get_key()
+    key = get_key()
     print("value of the key is:")
-    print(str(key))"""
+    print(str(key))
 
     if key == 1:
         LCD.lcd_display_string(str(elapsed_time),1)
@@ -161,6 +164,7 @@ def keypad_interupt():
         previous_readings = json.loads(resp.text) # Converts the downloaded data from the cloud from json
         # Prints into the terminal / serial monitor
         for x in range(10):
+        # x = 1
             print("Previous Reading ",x,": temperature =",previous_readings["feeds"][x]["field1"],", humidity =",previous_readings["feeds"][x]["field2"])
 
             string = "Temperature" + str(x)
@@ -189,6 +193,7 @@ def keypad_interupt():
 def airconditioner_timer():
     global elapsed_time
     global ac_on_start_time
+    
 
     while system_status == 1:
         # Read humidity and temperature from the DHT sensor
@@ -212,13 +217,14 @@ def airconditioner_timer():
                     print("Timer is started")
                 else:
                     elapsed_time = time.time() - ac_on_start_time
+                    elapsed_time_str = format(elapsed_time,'.2f')
                     print(f"Air conditioner has been on for {elapsed_time:.2f} seconds")  # Prints into terminal / Serial Monitor
                     # Checks if the airconditioner has been on for more than 60 Seconds (Shortened for testing sake)
 
     
                     LCD.lcd_clear()
                     LCD.lcd_display_string("Elasped Time:",1)
-                    LCD.lcd_display_string(str(elapsed_time),2)
+                    LCD.lcd_display_string(str(elapsed_time_str),2)
                         
                     if elapsed_time > 60:   
                         GPIO.output(LED_PIN, GPIO.HIGH)  # Turn on the LED
@@ -248,7 +254,9 @@ def upload_data():
 
 def OnOff_Loop():
     global system_status
-    if system_status == 0:
+    global elapsed_time
+    print("System ON/OFF Toggled")
+    while system_status == 0:
         # System is off
         LCD.lcd_clear()
         GPIO.output(BUZZER_PIN, GPIO.LOW)
@@ -256,19 +264,13 @@ def OnOff_Loop():
         LCD.lcd_display_string("System OFF", 1)
         print("System is turned OFF")
         LCD.lcd_display_string("1.On",2)
-
-        key = None
-        while key not in [1]:
-            key = keypad_queue.get()
+        key = 0
+        key = get_key()
         if key == 1:
             system_status = 1
+            print("System switched to status 1")
+            elapsed_time = 0
 
-    if system_status == 1:
-        # System is on
-        airconditioner_timer_thread = threading.Thread(target=airconditioner_timer)
-        airconditioner_timer_thread.start()
-        print("System is turned ON")
-        
                 
 ##########################################################################################################
 # Telegram Bot
@@ -278,17 +280,16 @@ def OnOff_Loop():
 # Main function that holds essentially all the code
 def main():
     global system_status
-    OnOff_Loop()
-    # if system_status == 1:
-        # ac_timer_thread = threading.Thread(target=airconditioner_timer)  # Thread for the airconditioner_timer function
-        # ac_timer_thread.start()
+    
+    ac_timer_thread = threading.Thread(target=airconditioner_timer)  # Thread for the airconditioner_timer function
+    ac_timer_thread.start()
 
     keypad_thread = threading.Thread(target=get_key)
     keypad_thread.start()
 ##########################################################################################################
 
 # def start_flask_app():
-#   app.run(debug=True, host='0.0.0.0', port=5002)
+#   app.run(debug=True, host='0.0.0.0', port=5000)
 
 ##########################################################################################################
 
@@ -297,6 +298,6 @@ if __name__ == "__main__":
     # app.run(debug=True,host='0.0.0.0', port='80')
     main_thread = threading.Thread(target=main)
     main_thread.start()
-    app.run(debug=True, host='0.0.0.0', port=5002)
+    app.run(debug=True, host='0.0.0.0', port=5000)
     # main()
 
